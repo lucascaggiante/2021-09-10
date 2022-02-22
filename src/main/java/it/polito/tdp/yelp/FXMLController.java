@@ -5,7 +5,10 @@
 package it.polito.tdp.yelp;
 
 import java.net.URL;
+import java.util.List;
 import java.util.ResourceBundle;
+
+import it.polito.tdp.yelp.model.Business;
 import it.polito.tdp.yelp.model.Model;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -37,31 +40,65 @@ public class FXMLController {
     private TextField txtX2; // Value injected by FXMLLoader
 
     @FXML // fx:id="cmbCitta"
-    private ComboBox<?> cmbCitta; // Value injected by FXMLLoader
+    private ComboBox<String> cmbCitta; // Value injected by FXMLLoader
 
     @FXML // fx:id="cmbB1"
-    private ComboBox<?> cmbB1; // Value injected by FXMLLoader
+    private ComboBox<Business> cmbB1; // Value injected by FXMLLoader
 
     @FXML // fx:id="cmbB2"
-    private ComboBox<?> cmbB2; // Value injected by FXMLLoader
+    private ComboBox<Business> cmbB2; // Value injected by FXMLLoader
 
     @FXML // fx:id="txtResult"
     private TextArea txtResult; // Value injected by FXMLLoader
     
     @FXML
     void doCreaGrafo(ActionEvent event) {
+    	String city = cmbCitta.getValue() ;
     	
+    	
+    	if(city==null ) {
+    		txtResult.appendText("Parametri obbligatori");
+    		return ;
+    	}
+    	
+    	String msg = model.creaGrafo(city) ;
+    	txtResult.appendText(msg);
+    	cmbB1.getItems().clear();
+    	cmbB1.getItems().clear();
+    	cmbB1.getItems().addAll(model.getVertici()) ;
+    	cmbB2.getItems().addAll(model.getVertici()) ;
     }
 
     @FXML
     void doCalcolaLocaleDistante(ActionEvent event) {
-
     	
-    }
+        	Business partenza = cmbB1.getValue();
+        	String best = model.getLontano(partenza) ;
+        	
+        	txtResult.appendText(best+"\n");
+        
+
+        }
 
     @FXML
     void doCalcolaPercorso(ActionEvent event) {
+    	Business partenza = cmbB1.getValue();
+    	Business arrivo = cmbB2.getValue();
+    	double soglia = -1 ;
+    	try {
+    		soglia = Double.parseDouble(txtX2.getText()) ;
+    	} catch(NumberFormatException ex) {
+    		txtResult.appendText("ERRORE: Il campo soglia deve essere numerico\n");
+    		return ;
+    	}
+    	
+    	List<Business> percorso = model.percorsoMigliore(partenza, arrivo, soglia) ;
 
+    	if(percorso==null) {
+    		txtResult.appendText("Non esiste un percorso\n");
+    	} else {
+    		txtResult.appendText("Percorso migliore:\n"+percorso.toString()+"\n");
+    	}
     }
 
 
@@ -80,5 +117,6 @@ public class FXMLController {
     
     public void setModel(Model model) {
     	this.model = model;
+    	cmbCitta.getItems().addAll(model.getAllCities()) ;
     }
 }
