@@ -5,7 +5,6 @@
 package it.polito.tdp.yelp;
 
 import java.net.URL;
-import java.util.List;
 import java.util.ResourceBundle;
 
 import it.polito.tdp.yelp.model.Business;
@@ -53,52 +52,61 @@ public class FXMLController {
     
     @FXML
     void doCreaGrafo(ActionEvent event) {
-    	String city = cmbCitta.getValue() ;
-    	
-    	
-    	if(city==null ) {
-    		txtResult.appendText("Parametri obbligatori");
-    		return ;
+    	String citta = cmbCitta.getValue();
+    	if(citta == null) {
+    		txtResult.appendText("Seleziona una citta'!\n");
+    		return;
     	}
     	
-    	String msg = model.creaGrafo(city) ;
-    	txtResult.appendText(msg);
-    	cmbB1.getItems().clear();
-    	cmbB1.getItems().clear();
-    	cmbB1.getItems().addAll(model.getVertici()) ;
-    	cmbB2.getItems().addAll(model.getVertici()) ;
+    	txtResult.clear();
+    	txtResult.appendText("GRAFO CREATO!\n"+model.creaGrafo(citta));
+    	cmbCitta.setDisable(true);
+    	cmbB1.getItems().addAll(this.model.getVertici());
+    	cmbB2.getItems().addAll(this.model.getVertici());
+    	btnCreaGrafo.setDisable(true);
+    	cmbB1.setDisable(false);
+    	btnDistante.setDisable(false);
+    	
+    	
     }
 
     @FXML
     void doCalcolaLocaleDistante(ActionEvent event) {
+    	Business locale = cmbB1.getValue();
+    	if(locale == null) {
+    		txtResult.appendText("\nSeleziona un locale!\n");
+    		return;
+    	}
+    	txtResult.appendText("\n"+model.getLocaleLontano(locale));
+    	cmbB2.setDisable(false);
+    	txtX2.setDisable(false);
+    	btnCalcolaPercorso.setDisable(false);
     	
-        	Business partenza = cmbB1.getValue();
-        	String best = model.getLontano(partenza) ;
-        	
-        	txtResult.appendText(best+"\n");
-        
-
-        }
+    }
 
     @FXML
     void doCalcolaPercorso(ActionEvent event) {
-    	Business partenza = cmbB1.getValue();
-    	Business arrivo = cmbB2.getValue();
-    	double soglia = -1 ;
+
+    	Business localePreferito = cmbB2.getValue();
+    	if (localePreferito == null) {
+    		txtResult.appendText("\nSeleziona un locale preferito!\n");
+    		return;
+    	}
+    	if (localePreferito ==cmbB1.getValue()) {
+    		txtResult.appendText("\nSeleziona un locale preferito diverso da quello di partenza!\n");
+    	return;
+    			}
+    	Integer s=0;
     	try {
-    		soglia = Double.parseDouble(txtX2.getText()) ;
-    	} catch(NumberFormatException ex) {
-    		txtResult.appendText("ERRORE: Il campo soglia deve essere numerico\n");
-    		return ;
+    		s = Integer.parseInt(txtX2.getText());
+    	} catch (NumberFormatException e) {
+        	this.txtResult.clear();
+    		txtResult.appendText("Formato N non corretto\n");
+    		return;
     	}
     	
-    	List<Business> percorso = model.percorsoMigliore(partenza, arrivo, soglia) ;
-
-    	if(percorso==null) {
-    		txtResult.appendText("Non esiste un percorso\n");
-    	} else {
-    		txtResult.appendText("Percorso migliore:\n"+percorso.toString()+"\n");
-    	}
+    	txtResult.appendText(("\n"+this.model.trovaPercorso(cmbB1.getValue(), localePreferito, txtX2.getText())));
+    	
     }
 
 
@@ -117,6 +125,12 @@ public class FXMLController {
     
     public void setModel(Model model) {
     	this.model = model;
-    	cmbCitta.getItems().addAll(model.getAllCities()) ;
+    	cmbCitta.getItems().addAll(this.model.getCitta());
+    	cmbB1.setDisable(true);
+    	cmbB2.setDisable(true);
+    	txtX2.setDisable(true);
+    	btnCalcolaPercorso.setDisable(true);
+    	btnDistante.setDisable(true);
+    	
     }
 }
