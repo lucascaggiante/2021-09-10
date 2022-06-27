@@ -1,9 +1,8 @@
 package it.polito.tdp.yelp.model;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -17,148 +16,107 @@ import com.javadocmd.simplelatlng.LatLng;
 import com.javadocmd.simplelatlng.LatLngTool;
 import com.javadocmd.simplelatlng.util.LengthUnit;
 
-
 import it.polito.tdp.yelp.db.YelpDao;
 
-
-
 public class Model {
-	private Graph<Business, DefaultWeightedEdge> grafo ;
-	private List<Business> vertici ;
-	private List<Business> percorsoBest;
-	private Map<String, Business> verticiIdMap ;
-
-
-
-	public List<String> getAllCities() {
-		YelpDao dao = new YelpDao();
-				return dao.getAllCities();
-	}
+	
+	private YelpDao dao = new YelpDao();
+	private List<Business> locali = new ArrayList<>();
+	private Graph<Business, DefaultWeightedEdge> grafo;
+	private List<Business> percorsoMigliore;
 	
 	
-	public String creaGrafo(String city) {
-		this.grafo = new SimpleWeightedGraph<Business, DefaultWeightedEdge>(DefaultWeightedEdge.class) ;
-		YelpDao dao = new YelpDao() ;
-		this.vertici = dao.getBusinessByCity(city) ;
-		this.verticiIdMap = new HashMap<>() ;
-		for(Business b : this.vertici)
-			this.verticiIdMap.put(b.getBusinessId(), b) ;
+	
+	public String creaGrafo(String citta) {
+		this.grafo = new SimpleWeightedGraph<Business, DefaultWeightedEdge>(DefaultWeightedEdge.class);
+		this.locali = dao.getBusinessByCity(citta);
+		Graphs.addAllVertices(this.grafo, this.locali);
 		
-		
-		Graphs.addAllVertices(this.grafo, this.vertici) ;
-		
-		
-			
-		
-		
-		/*for(Business v1 : this.grafo.vertexSet()) {
-			for(Business v2 : this.grafo.vertexSet()) {
-				if(!v1.equals(v2)) {
-					if(this.grafo.getEdge(v1, v2) == null) {
-						Double latMediaV1 = dao.getLatMedia(v1);
-						Double latMediaV2 = dao.getLatMedia(v2);
-						
-						Double lonMediaV1 = dao.getLonMedia(v1);
-						Double lonMediaV2 = dao.getLonMedia(v2);
-						
-						Double distanzaMedia = LatLngTool.distance(new LatLng(latMediaV1,lonMediaV1), 
-																	new LatLng(latMediaV2, lonMediaV2), 
-																	LengthUnit.KILOMETER);
-						
-						Graphs.addEdgeWithVertices(this.grafo, v1, v2, distanzaMedia);
-						verticiDistanze.put(v2, distanzaMedia);
-						System.out.println(distanzaMedia+"");
-					}
+		for(Business b1 : this.locali) {
+			for(Business b2 : this.locali) {
+				if(!b1.equals(b2)) {
+					Double latB1 = b1.getLatitude();
+					Double lngB1 =b1.getLongitude();
+					Double latB2 =b2.getLatitude();
+					Double lngB2= b2.getLongitude();
+					Double peso = LatLngTool.distance(new LatLng(latB1,lngB1), 
+							new LatLng(latB2, lngB2), 
+							LengthUnit.KILOMETER);
+
+							Graphs.addEdge(this.grafo, b1, b2, peso);
 				}
 			}
-			*/ 
-			List<ArcoGrafo> archi = dao.calcolaArchi(city) ;
-			for(ArcoGrafo arco : archi) {
-				Graphs.addEdge(this.grafo,
-						this.verticiIdMap.get(arco.getBusinessId1()),
-						this.verticiIdMap.get(arco.getBusinessId2()), 
-						arco.getPeso()) ;
+		}
+		return "#VERTICI: "+this.grafo.vertexSet().size()+
+				" #ARCHI: "+this.grafo.edgeSet().size();
+		//System.out.println(this.grafo.vertexSet().size());
+		//System.out.println(this.grafo.edgeSet().size());
+	}
+	public List<String> getCitta() {
+		
+		return this.dao.getCity();
+	}
+	public Set<Business> getVertici() {
+		//System.out.println(this.grafo.vertexSet().size());
+		return this.grafo.vertexSet();
+	}
+	public String getLocaleLontano(Business partenza) {
+		Double peso = 0.0;
+		Business localeDistante=null;
+		List<Business> vicini = Graphs.neighborListOf(this.grafo, partenza);
+		for(Business vicino : vicini) {
+			if(this.grafo.getEdgeWeight(this.grafo.getEdge(vicino, partenza))>peso) {
+				peso = this.grafo.getEdgeWeight(this.grafo.getEdge(vicino, partenza));
+				localeDistante = vicino;
 			}
+		}
+		return localeDistante+" "+peso;
+	}
+	public String trovaPercorso(Business partenza, Business arrivo, String soglia) {
+		this.percorsoMigliore = new LinkedList<>();
+		List<Business> parziale = new LinkedList<>();
+		parziale.add(partenza);
+		
+		cerca(arrivo, parziale,soglia); 		//il primo nodo è sicuramente la sorgente
+		return this.percorsoMigliore+"\n#NODI ATTRAVERSATI: "
+		+(this.percorsoMigliore.size());
+		
+	}
+
+private void cerca(Business arrivo, List<Business> parziale, String soglia) {
+	
+	Business ultimo = parziale.get(parziale.size()-1) ;
+	Integer s = Integer.parseInt(soglia);
+	
+	// caso terminale: ho trovato l'arrivo
+	if(ultimo.equals(arrivo)) {
+		if(this.percorsoMigliore==null) {
+			this.percorsoMigliore = new ArrayList<>(parziale) ;
+			return ;
+		} else if( parziale.size() > this.percorsoMigliore.size() ) {
+			// NOTA: per calcolare i percorsi più lunghi, basta
+			// mettere > nell'istuzione precedente
+			this.percorsoMigliore = new ArrayList<>(parziale) ;
+			return ;
+		} else {
+			return ;
+		}
+	}
+	
+	// generazione dei percorsi
+	// cerca i successori di 'ultimo'
+	for(DefaultWeightedEdge e: this.grafo.outgoingEdgesOf(ultimo)) {
+		if(this.grafo.getEdgeSource(e).getStars()>s) {
+			// vai
 			
-		
-		
-				
-		
-		return String.format("Grafo creato con %d vertici e %d archi\n",
-				this.grafo.vertexSet().size(),
-				this.grafo.edgeSet().size()) ;
+			Business prossimo = Graphs.getOppositeVertex(this.grafo, e, ultimo) ;
+			
+			if(!parziale.contains(prossimo)) { // evita i cicli
+				parziale.add(prossimo);
+				cerca(arrivo, parziale,soglia);
+				parziale.remove(parziale.size()-1) ;
+			}
+		}
+	}	
 }
-
-	
-	public String  getLontano(Business locale) {
-		
-		if(grafo==null)
-			return null;
-		Business lontano = null;
-		Double distanzaMassima=0.0;
-
-		
-		for (Business b : this.grafo.vertexSet()) {
-			if(!b.equals(locale)) {
-				Double distanza = this.grafo.getEdgeWeight(this.grafo.getEdge(locale, b));
-				
-				if (distanza > distanzaMassima) {
-					distanzaMassima =distanza;
-					lontano = b;
-				}
-			}
-		}
-		
-		return "Locale più distante=\n"+lontano+" "+distanzaMassima;
-	}
-
-	public List<Business> percorsoMigliore(Business partenza, Business arrivo, double soglia) {
-		this.percorsoBest = null ;
-		
-		List<Business> parziale = new ArrayList<Business>() ;
-		parziale.add(partenza) ;
-		
-		cerca(parziale, 1, arrivo, soglia) ;
-		
-		return this.percorsoBest ;
-	}
-	
-private void cerca(List<Business> parziale, int livello, Business arrivo, double soglia) {
-		
-		Business ultimo = parziale.get(parziale.size()-1) ;
-		
-		// caso terminale: ho trovato l'arrivo
-		if(ultimo.equals(arrivo)) {
-			if(this.percorsoBest==null) {
-				this.percorsoBest = new ArrayList<>(parziale) ;
-				return ;
-			} else if( parziale.size() > this.percorsoBest.size() ) {
-				
-				this.percorsoBest = new ArrayList<>(parziale) ;
-				return ;
-			} else {
-				return ;
-			}
-		}
-		
-		// generazione dei percorsi
-		// cerca i successori di 'ultimo'
-		for(DefaultWeightedEdge e: this.grafo.outgoingEdgesOf(ultimo)) {
-			
-				// vai
-				
-				Business prossimo = Graphs.getOppositeVertex(this.grafo, e, ultimo) ;
-				
-				if(!parziale.contains(prossimo) && prossimo.getStars()>soglia) { // evita i cicli
-					parziale.add(prossimo);
-					cerca(parziale, livello + 1, arrivo, soglia);
-					parziale.remove(parziale.size()-1) ;
-				}
-			
-		}	
-	}
-	
-	public List<Business> getVertici() {
-		return this.vertici ;
-	}
 }
